@@ -1,0 +1,46 @@
+#!/bin/bash
+#SBATCH -J cd-hit_assembly_combine
+#SBATCH -p RM-shared
+#SBATCH -o cd-hit_assembly_combine_%j.txt
+#SBATCH -e cd-hit_assembly_combine_%j.err
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=hholm@ldeo.columbia.edu
+#SBATCH -N 1
+#SBATCH --cpus-per-task=10
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=10:00:00
+
+module load anaconda3
+conda activate venv_MMETSP_assem
+
+# Combine assemblies
+# One folder in here for each species with fasta files
+BASE_DIR="/ocean/projects/ees240016p/hholm/johnson_assembly_2017/mmetsp_annotations_trinity2.2.0/fasta/dyhrman"
+
+for sp in "$BASE_DIR"/*/; do
+  echo "Processing directory: $sp"
+  
+  # Initialize or clear the combined file
+  combined_assembly="${sp%/}_combined_assembly.txt"
+  > "$combined_assembly"
+
+  # Loop through each file in the current subdirectory to add
+  for file in "$sp"/*; do
+    if [ -f "$file" ]; then
+      echo "Adding $file to $combined_assembly"
+      cat "$file" >> "$combined_assembly"
+    fi
+  done
+
+  echo "Combined files into $combined_assembly. Applying cd-hit."
+  cd-hit-est -i "$combined_assembly" -o "${combined_assembly}_cdhit" -c 0.98 -n 10 -aS 1 -aL 0.005 -M 3500
+  echo "CD-Hit Done."
+done
+
+# This script uses cd-hit to combine transcriptome assemblies from the same species
+# under different conditions into one assembly.
+#
+# Using "/hannaand026/bioinformatics/blob/main/cd-hit_98_slurm" as a start point.
+# For CD-Hit, using 98% identity as per Harke et al. 2021. Using word count of 10
+# as suggested by the CD-hit manual. aS and aL settings perserved from Hanna's
+# script.
